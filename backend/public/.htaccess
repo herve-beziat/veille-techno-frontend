@@ -1,0 +1,14 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Transmet l'en-tête Authorization à PHP (sinon JWT ne marche pas)
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Ne pas réécrire les fichiers existants
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # Tout le reste vers index.php
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>

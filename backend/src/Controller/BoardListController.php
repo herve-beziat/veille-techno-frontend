@@ -153,7 +153,12 @@ final class BoardListController extends AbstractController
             $em->flush();
         }
 
-        return $this->json(['message' => 'Liste mise à jour']);
+        // 👉 On renvoie maintenant l’objet complet
+        return $this->json([
+            'id' => $boardList->getId(),
+            'title' => $boardList->getTitle(),
+            'position' => $boardList->getPosition()
+        ]);
     }
 
     #[Route('/{id}', name: 'api_boardlists_delete', methods: ['DELETE'])]
@@ -183,9 +188,14 @@ final class BoardListController extends AbstractController
             return $this->json(['error' => 'Non autorisé'], 403);
         }
 
+        $deletedId = $boardList->getId();
+
         $em->remove($boardList);
         $em->flush();
 
-        return $this->json(['message' => 'Liste supprimée']);
+        return $this->json([
+            'message' => 'Liste supprimée',
+            'id' => $deletedId
+        ]);
     }
 }

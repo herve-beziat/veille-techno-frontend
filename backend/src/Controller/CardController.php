@@ -119,7 +119,10 @@ final class CardController extends AbstractController
         return $this->json([
             'message' => 'Carte créée',
             'id' => $card->getId(),
-            'position' => $card->getPosition()
+            'title' => $card->getTitle(),
+            'description' => $card->getDescription(),
+            'position' => $card->getPosition(),
+            'createdAt' => $card->getCreatedAt()?->format('Y-m-d H:i:s')
         ], 201);
     }
 
@@ -184,7 +187,13 @@ final class CardController extends AbstractController
 
         $em->flush();
 
-        return $this->json(['message' => 'Carte mise à jour']);
+        return $this->json([
+            'message' => 'Carte mise à jour',
+            'id' => $card->getId(),
+            'title' => $card->getTitle(),
+            'description' => $card->getDescription(),
+            'position' => $card->getPosition()
+        ]);
     }
 
     #[Route('/{id}', name: 'api_cards_delete', methods: ['DELETE'])]
@@ -214,9 +223,15 @@ final class CardController extends AbstractController
             return $this->json(['error' => 'Non autorisé'], 403);
         }
 
+        // ✅ Sauvegarder l'ID avant de supprimer
+        $deletedId = $card->getId();
+
         $em->remove($card);
         $em->flush();
 
-        return $this->json(['message' => 'Carte supprimée']);
+        return $this->json([
+            'message' => 'Carte supprimée',
+            'id' => $deletedId
+        ]);
     }
 }

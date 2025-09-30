@@ -1,11 +1,24 @@
 <script setup lang="ts">
-// Pas d'import inutile tant qu'on n'a pas de navigation
+import Sidebar from './components/Sidebar.vue'
 </script>
 
 <template>
-  <router-view />
+  <div class="app">
+    <Sidebar />
+    <main class="content">
+      <router-view />
+    </main>
+  </div>
 </template>
 
 <style>
-/* Tu pourras mettre ton style global ici plus tard */
+.app {
+  display: flex;
+}
+
+.content {
+  margin-left: 240px; /* espace réservé pour la sidebar */
+  padding: 2rem;
+  flex: 1;
+}
 </style>

@@ -1,9 +1,16 @@
 <script setup lang="ts">
-import TheWelcome from '../components/TheWelcome.vue'
+// Rien à importer pour l'instant
 </script>
 
 <template>
-  <main>
-    <TheWelcome />
-  </main>
+  <div>
+    <h1>Accueil</h1>
+    <p>Bienvenue dans notre appli Kanban 🎯</p>
+  </div>
 </template>
+
+<style scoped>
+h1 {
+  color: #42b983; /* petit clin d'œil à Vue */
+}
+</style>

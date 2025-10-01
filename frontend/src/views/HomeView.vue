@@ -1,26 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
-import Sidebar from '../components/Sidebar.vue'
-import { isAuthenticated, fetchMe, clearToken } from '../services/auth'
+import { useAuthStore } from '../stores/auth'
 
-const connected = ref(false)
-
-onMounted(async () => {
-  if (!isAuthenticated()) {
-    connected.value = false
-    return
-  }
-
-  try {
-    await fetchMe()
-    connected.value = true
-  } catch (e) {
-    // Si le token est invalide, on le supprime
-    clearToken()
-    connected.value = false
-  }
-})
+const auth = useAuthStore()
 </script>
 
 <template>
@@ -29,18 +11,19 @@ onMounted(async () => {
     <p>Organisez vos tâches facilement avec un tableau Kanban interactif.</p>
 
     <div class="content">
-      <!-- Si connecté → afficher la sidebar -->
-      <Sidebar v-if="connected" />
-
-      <!-- Sinon → boutons Connexion / Inscription -->
-      <div v-else class="actions">
+      <!-- Si pas connecté → boutons Connexion / Inscription -->
+      <div v-if="!auth.isLoggedIn" class="actions">
         <RouterLink to="/login" class="btn">Connexion</RouterLink>
         <RouterLink to="/register" class="btn">Inscription</RouterLink>
+      </div>
+
+      <!-- Si connecté → simple message -->
+      <div v-else>
+        <p>Bonjour {{ auth.user?.name }} 👋</p>
       </div>
     </div>
   </div>
 </template>
-
 
 <style scoped>
 .content {

@@ -1,26 +1,20 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { RouterLink } from 'vue-router'
-import { isAuthenticated, fetchMe, clearToken } from '../services/auth'
+import { ref } from 'vue'
+import { RouterLink, useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 
-const connected = ref(false)
+const auth = useAuthStore()
+const router = useRouter()
 const showKanban = ref(false)
 
 function toggleKanban() {
   showKanban.value = !showKanban.value
 }
 
-// Vérifie l’état de connexion
-onMounted(async () => {
-  if (!isAuthenticated()) return
-  try {
-    await fetchMe()
-    connected.value = true
-  } catch {
-    clearToken()
-    connected.value = false
-  }
-})
+function handleLogout() {
+  auth.logout()
+  router.push('/')  // retour à l'accueil
+}
 </script>
 
 <template>
@@ -29,7 +23,7 @@ onMounted(async () => {
       <RouterLink to="/" class="link">🏠 Accueil</RouterLink>
 
       <!-- Liens visibles uniquement si connecté -->
-      <div v-if="connected">
+      <div v-if="auth.isLoggedIn">
         <div class="menu-item" @click="toggleKanban">
           📋 Tableau Kanban
           <span class="arrow">{{ showKanban ? "▼" : "▶" }}</span>
@@ -37,13 +31,16 @@ onMounted(async () => {
         <div v-if="showKanban" class="submenu">
           <RouterLink to="/board" class="sublink">➕ Nouvelle liste</RouterLink>
         </div>
+
+        <!-- Bouton Déconnexion -->
+        <button class="logout" @click="handleLogout">🚪 Déconnexion</button>
       </div>
     </nav>
   </aside>
 </template>
 
-
 <style scoped>
+/* ton CSS reste identique */
 .sidebar {
   width: 240px;
   height: 100vh;
@@ -99,5 +96,19 @@ nav {
 
 .sublink:hover {
   color: #42b983;
+}
+
+.logout {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #c00;
+  font-weight: 500;
+  text-align: left;
+  padding: 0;
+}
+
+.logout:hover {
+  text-decoration: underline;
 }
 </style>

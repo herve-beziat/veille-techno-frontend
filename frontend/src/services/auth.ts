@@ -26,11 +26,16 @@ export async function fetchMe() {
   return data
 }
 
-// Exemple de fonction login (on s’en servira pour LoginView.vue plus tard)
+// Connexion via /api/login_check
 export async function login(email: string, password: string) {
   const { data } = await api.post('/login_check', { email, password })
   const token = data.token || data.jwt // selon ta config LexikJWT
   if (!token) throw new Error('Token JWT manquant')
   saveToken(token)
   return token
+}
+
+// Déconnexion → supprime le token
+export function logout() {
+  clearToken()
 }

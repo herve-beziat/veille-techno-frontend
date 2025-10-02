@@ -7,7 +7,12 @@ const auth = useAuthStore()
 const router = useRouter()
 const showKanban = ref(false)
 
-function toggleKanban() {
+function handleKanbanClick() {
+  router.push({ name: 'board' })
+  showKanban.value = true
+}
+
+function toggleKanbanMenu() {
   showKanban.value = !showKanban.value
 }
 
@@ -24,9 +29,9 @@ function handleLogout() {
 
       <!-- Liens visibles uniquement si connecté -->
       <div v-if="auth.isLoggedIn">
-        <div class="menu-item" @click="toggleKanban">
+        <div class="menu-item" @click="handleKanbanClick">
           📋 Tableau Kanban
-          <span class="arrow">{{ showKanban ? "▼" : "▶" }}</span>
+          <span class="arrow" @click.stop="toggleKanbanMenu">{{ showKanban ? "▼" : "▶" }}</span>
         </div>
         <div v-if="showKanban" class="submenu">
           <RouterLink to="/board" class="sublink">➕ Nouvelle liste</RouterLink>
@@ -51,64 +56,5 @@ function handleLogout() {
   position: fixed;
   top: 0;
   left: 0;
-}
-
-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.link {
-  text-decoration: none;
-  color: #333;
-  font-weight: 500;
-}
-
-.link:hover {
-  color: #42b983;
-}
-
-.menu-item {
-  cursor: pointer;
-  font-weight: 500;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.arrow {
-  font-size: 0.8rem;
-}
-
-.submenu {
-  margin-left: 1rem;
-  margin-top: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.sublink {
-  text-decoration: none;
-  color: #666;
-}
-
-.sublink:hover {
-  color: #42b983;
-}
-
-.logout {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #c00;
-  font-weight: 500;
-  text-align: left;
-  padding: 0;
-}
-
-.logout:hover {
-  text-decoration: underline;
 }
 </style>

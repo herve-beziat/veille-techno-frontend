@@ -1,18 +1,10 @@
 <script setup lang="ts">
-// Ce composant sera enrichi ultérieurement.
+import KanbanBoard from '../components/kanban/KanbanBoard.vue'
 </script>
 
 <template>
-  <section class="board-view">
-    <h1>Tableau Kanban</h1>
-    <p>Le tableau Kanban sera bientôt disponible.</p>
-  </section>
+  <div class="board-view">
+    <h1>Mon Tableau Kanban</h1>
+    <KanbanBoard />
+  </div>
 </template>
-
-<style scoped>
-.board-view {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-</style>

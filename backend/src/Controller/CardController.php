@@ -126,6 +126,112 @@ final class CardController extends AbstractController
         ], 201);
     }
 
+    #[Route('/reorder', name: 'api_cards_reorder', methods: ['POST'])]
+    #[OA\Post(
+        path: "/api/cards/reorder",
+        summary: "Réordonne plusieurs cartes et permet leur déplacement entre listes",
+        tags: ["Card"],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                type: "object",
+                properties: [
+                    new OA\Property(
+                        property: "cards",
+                        type: "array",
+                        items: new OA\Items(
+                            type: "object",
+                            properties: [
+                                new OA\Property(property: "id", type: "integer", example: 1),
+                                new OA\Property(property: "list_id", type: "integer", example: 2),
+                                new OA\Property(property: "position", type: "integer", example: 3),
+                            ]
+                        )
+                    )
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Ordre mis à jour"),
+            new OA\Response(response: 400, description: "Format invalide"),
+            new OA\Response(response: 401, description: "Non authentifié"),
+            new OA\Response(response: 403, description: "Non autorisé"),
+            new OA\Response(response: 404, description: "Carte ou liste introuvable"),
+        ]
+    )]
+    
+    public function reorder(Request $request, EntityManagerInterface $em): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user) {
+            return $this->json(['error' => 'Non authentifié'], 401);
+        }
+
+        $payload = json_decode($request->getContent(), true);
+        if (!isset($payload['cards']) || !is_array($payload['cards'])) {
+            return $this->json(['error' => 'Format de données invalide'], 400);
+        }
+
+        $updates = [];
+        foreach ($payload['cards'] as $item) {
+            if (!isset($item['id'], $item['list_id'], $item['position'])) {
+                return $this->json(['error' => 'Format de données invalide'], 400);
+            }
+
+            $cardId = (int) $item['id'];
+            if (isset($updates[$cardId])) {
+                return $this->json(['error' => 'Ordre des cartes invalide'], 400);
+            }
+
+            $updates[$cardId] = [
+                'list_id' => (int) $item['list_id'],
+                'position' => (int) $item['position'],
+            ];
+        }
+
+        if (empty($updates)) {
+            return $this->json(['message' => 'Aucune mise à jour effectuée']);
+        }
+
+        $cardRepository = $em->getRepository(Card::class);
+        $cards = $cardRepository->findBy([
+            'id' => array_keys($updates),
+        ]);
+
+        if (count($cards) !== count($updates)) {
+            return $this->json(['error' => 'Carte introuvable'], 404);
+        }
+
+        $listRepository = $em->getRepository(BoardList::class);
+        $listsCache = [];
+
+        foreach ($cards as $card) {
+            $cardUpdate = $updates[$card->getId()];
+
+            if ($card->getList()->getOwner() !== $user) {
+                return $this->json(['error' => 'Non autorisé'], 403);
+            }
+
+            $listId = $cardUpdate['list_id'];
+            if (!isset($listsCache[$listId])) {
+                $listsCache[$listId] = $listRepository->find($listId);
+            }
+
+            $targetList = $listsCache[$listId];
+            if (!$targetList || $targetList->getOwner() !== $user) {
+                return $this->json(['error' => 'Liste introuvable'], 404);
+            }
+
+            $card->setList($targetList);
+            $card->setPosition($cardUpdate['position']);
+            $card->setUpdatedAt(new \DateTime());
+        }
+
+        $em->flush();
+
+        return $this->json(['message' => 'Ordre des cartes mis à jour']);
+    }
+
     #[Route('/{id}', name: 'api_cards_update', methods: ['PUT'])]
     #[OA\Put(
         path: "/api/cards/{id}",

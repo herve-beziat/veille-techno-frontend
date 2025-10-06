@@ -48,6 +48,7 @@ final class BoardListController extends AbstractController
         $data = array_map(fn(BoardList $list) => [
             'id' => $list->getId(),
             'title' => $list->getTitle(),
+            'position' => $list->getPosition(),
         ], $lists);
 
         return $this->json($data);
@@ -107,6 +108,92 @@ final class BoardListController extends AbstractController
             'id' => $boardList->getId(),
             'position' => $boardList->getPosition()
         ], 201);
+    }
+    #[Route('/reorder', name: 'api_boardlists_reorder', methods: ['POST'])]
+    #[OA\Post(
+        path: "/api/boardlists/reorder",
+        summary: "Réordonne les listes du user connecté",
+        tags: ["BoardList"],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                type: "object",
+                properties: [
+                    new OA\Property(
+                        property: "lists",
+                        type: "array",
+                        items: new OA\Items(
+                            type: "object",
+                            properties: [
+                                new OA\Property(property: "id", type: "integer", example: 1)
+                            ]
+                        )
+                    )
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Ordre mis à jour"),
+            new OA\Response(response: 400, description: "Format invalide"),
+            new OA\Response(response: 401, description: "Non authentifié"),
+            new OA\Response(response: 404, description: "Liste introuvable"),
+        ]
+    )]
+    public function reorder(Request $request, EntityManagerInterface $em): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user) {
+            return $this->json(['error' => 'Non authentifié'], 401);
+        }
+
+        $payload = json_decode($request->getContent(), true);
+        if (!isset($payload['lists']) || !is_array($payload['lists'])) {
+            return $this->json(['error' => 'Format de données invalide'], 400);
+        }
+
+        $orderedIds = [];
+        foreach ($payload['lists'] as $item) {
+            if (!isset($item['id'])) {
+                return $this->json(['error' => 'Format de données invalide'], 400);
+            }
+            $orderedIds[] = (int) $item['id'];
+        }
+
+        if (empty($orderedIds)) {
+            return $this->json(['message' => 'Aucune mise à jour effectuée'], 200);
+        }
+
+        $uniqueIds = array_values(array_unique($orderedIds));
+        if (count($uniqueIds) !== count($orderedIds)) {
+            return $this->json(['error' => 'Ordre de liste invalide'], 400);
+        }
+
+        $listRepository = $em->getRepository(BoardList::class);
+        $lists = $listRepository->findBy([
+            'owner' => $user,
+            'id' => $uniqueIds,
+        ]);
+
+        if (count($lists) !== count($uniqueIds)) {
+            return $this->json(['error' => 'Certaines listes sont introuvables'], 404);
+        }
+
+        $listsById = [];
+        foreach ($lists as $list) {
+            $listsById[$list->getId()] = $list;
+        }
+
+        $position = 1;
+        foreach ($orderedIds as $listId) {
+            if (!isset($listsById[$listId])) {
+                return $this->json(['error' => 'Ordre de liste invalide'], 400);
+            }
+            $listsById[$listId]->setPosition($position++);
+        }
+
+        $em->flush();
+
+        return $this->json(['message' => 'Ordre des listes mis à jour']);
     }
 
 

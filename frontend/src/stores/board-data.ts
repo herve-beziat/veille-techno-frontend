@@ -1,5 +1,12 @@
 import { defineStore } from 'pinia'
-import type { KanbanListData } from '@/types/kanban'
+import type { KanbanListData, KanbanCardData } from '@/types/kanban'
+
+function cloneCard(card: KanbanCardData, listId: number): KanbanCardData {
+  return {
+    ...card,
+    listId: card.listId ?? listId,
+  }
+}
 
 export const useBoardDataStore = defineStore('boardData', {
   state: () => ({
@@ -12,7 +19,7 @@ export const useBoardDataStore = defineStore('boardData', {
     setLists(lists: KanbanListData[]) {
       this.lists = lists.map((list) => ({
         ...list,
-        cards: [...list.cards],
+        cards: list.cards.map((card) => cloneCard(card, list.id)),
       }))
     },
     clearLists() {

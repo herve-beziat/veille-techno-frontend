@@ -4,7 +4,7 @@ import { isAxiosError } from 'axios'
 import KanbanBoard from '../components/kanban/KanbanBoard.vue'
 import AppModal from '@/components/ui/AppModal.vue'
 import api from '@/services/api'
-import type { KanbanCardData, KanbanListData } from '@/types/kanban'
+import type { KanbanBoardChange, KanbanCardData, KanbanListData } from '@/types/kanban'
 import { useBoardUiStore } from '@/stores/board-ui'
 import { useBoardDataStore } from '@/stores/board-data'
 
@@ -41,6 +41,9 @@ const newCardTitle = ref('')
 const newCardDescription = ref('')
 const createCardError = ref<string | null>(null)
 const isCreatingCard = ref(false)
+const boardMutationError = ref<string | null>(null)
+
+let boardMutationErrorTimeout: ReturnType<typeof setTimeout> | null = null
 
 const isCreateListModalOpen = computed({
   get: () => boardUi.createListModalOpen,
@@ -77,6 +80,30 @@ function sortListsByPosition(boardLists: KanbanListData[]): KanbanListData[] {
 
 function sortCardsByPosition(cards: KanbanCardData[]): KanbanCardData[] {
   return [...cards].sort((a, b) => a.position - b.position)
+}
+
+function cloneBoardLists(boardLists: KanbanListData[]): KanbanListData[] {
+  return boardLists.map((list) => ({
+    ...list,
+    cards: list.cards.map((card) => ({ ...card })),
+  }))
+}
+
+function clearBoardMutationError() {
+  if (boardMutationErrorTimeout) {
+    clearTimeout(boardMutationErrorTimeout)
+    boardMutationErrorTimeout = null
+  }
+  boardMutationError.value = null
+}
+
+function showBoardMutationError(message: string) {
+  clearBoardMutationError()
+  boardMutationError.value = message
+  boardMutationErrorTimeout = setTimeout(() => {
+    boardMutationError.value = null
+    boardMutationErrorTimeout = null
+  }, 5000)
 }
 
 function resetListForm() {
@@ -117,6 +144,37 @@ watch(
   },
 )
 
+async function handleBoardChange(change: KanbanBoardChange) {
+  const previousState = cloneBoardLists(lists.value)
+  boardData.setLists(change.lists)
+
+  try {
+    if (change.type === 'reorder-lists') {
+      await api.post('/boardlists/reorder', { lists: change.order })
+    } else {
+      await api.post('/cards/reorder', { cards: change.updates })
+    }
+    clearBoardMutationError()
+  } catch (err: unknown) {
+    boardData.setLists(previousState)
+
+    if (isAxiosError(err)) {
+      const fallbackMessage =
+        change.type === 'reorder-lists'
+          ? 'Impossible de réordonner les listes pour le moment.'
+          : 'Impossible de réordonner les cartes pour le moment.'
+
+      showBoardMutationError(err.response?.data?.error ?? fallbackMessage)
+    } else {
+      showBoardMutationError(
+        change.type === 'reorder-lists'
+          ? 'Impossible de réordonner les listes pour le moment.'
+          : 'Impossible de réordonner les cartes pour le moment.',
+      )
+    }
+  }
+}
+
 async function fetchBoard() {
   isLoading.value = true
   error.value = null
@@ -134,12 +192,16 @@ async function fetchBoard() {
           id: list.id,
           title: list.title,
           position: list.position ?? null,
-          cards: sortCardsByPosition(cards),
+          cards: sortCardsByPosition(cards).map((card) => ({
+            ...card,
+            listId: list.id,
+          })),
         }
       }),
     )
 
     boardData.setLists(sortListsByPosition(listsWithCards))
+    clearBoardMutationError()
   } catch (err: unknown) {
     if (isAxiosError(err)) {
       if (err.response?.status === 401) {
@@ -181,6 +243,7 @@ async function submitCreateList() {
     ])
 
     boardData.setLists(updatedLists)
+    clearBoardMutationError()
     boardUi.closeCreateListModal()
   } catch (err: unknown) {
     if (isAxiosError(err)) {
@@ -235,8 +298,12 @@ async function submitCreateCard() {
           title: data.title,
           description: data.description,
           position: data.position,
+          listId: targetList.value.id,
         },
-      ])
+      ]).map((card) => ({
+        ...card,
+        listId: targetList.value?.id ?? card.listId ?? list.id,
+      }))
 
       const updatedLists = [...lists.value]
       updatedLists.splice(listIndex, 1, {
@@ -244,6 +311,7 @@ async function submitCreateCard() {
         cards: updatedCards,
       })
       boardData.setLists(sortListsByPosition(updatedLists))
+      clearBoardMutationError()
     }
 
     boardUi.closeCreateCardModal()
@@ -272,7 +340,13 @@ onMounted(fetchBoard)
 
     <p v-if="isLoading" class="board-view__status">Chargement du tableau…</p>
     <p v-else-if="error" class="board-view__status board-view__status--error">{{ error }}</p>
-    <KanbanBoard v-else :lists="lists" />
+    <KanbanBoard v-else :lists="lists" @board-change="handleBoardChange" />
+    <p
+      v-if="boardMutationError && !isLoading && !error"
+      class="board-view__status board-view__status--warning"
+    >
+      {{ boardMutationError }}
+    </p>
 
     <AppModal v-model="isCreateListModalOpen">
       <template #header>Créer une nouvelle liste</template>
@@ -381,6 +455,15 @@ onMounted(fetchBoard)
 
 .board-view__status--error {
   color: #d93025;
+}
+
+.board-view__status--warning {
+  color: #b45309;
+  background-color: #fef3c7;
+  border: 1px solid #f59e0b;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  margin-top: 0.5rem;
 }
 
 .modal-form {

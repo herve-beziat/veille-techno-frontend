@@ -16,9 +16,10 @@ defineProps<{ card: KanbanCardData }>()
   background: white;
   border: 1px solid #ccc;
   padding: 0.75rem;
-  margin-top: 0.5rem;
   border-radius: 6px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  cursor: grab;
+  user-select: none;
 }
 
 .kanban-card__title {

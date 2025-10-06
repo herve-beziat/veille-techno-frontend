@@ -14,6 +14,74 @@ use OpenApi\Attributes as OA;
 #[Route('/api/cards')]
 final class CardController extends AbstractController
 {
+    #[Route('/all', name: 'api_cards_list_all', methods: ['GET'])]
+    #[OA\Get(
+        path: "/api/cards/all",
+        summary: "Liste toutes les cartes quel que soit le propriétaire de la liste",
+        tags: ["Card"],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Tableau de toutes les cartes",
+                content: new OA\JsonContent(
+                    type: "array",
+                    items: new OA\Items(
+                        type: "object",
+                        properties: [
+                            new OA\Property(property: "id", type: "integer", example: 1),
+                            new OA\Property(property: "title", type: "string", example: "Acheter du café"),
+                            new OA\Property(property: "description", type: "string", nullable: true, example: "Prendre du café moulu"),
+                            new OA\Property(property: "position", type: "integer", example: 1),
+                            new OA\Property(property: "listId", type: "integer", example: 3),
+                            new OA\Property(property: "listTitle", type: "string", example: "À faire"),
+                            new OA\Property(property: "ownerId", type: "integer", nullable: true, example: 7),
+                            new OA\Property(property: "createdAt", type: "string", format: "date-time", example: "2024-01-01 12:00:00"),
+                            new OA\Property(property: "updatedAt", type: "string", nullable: true, format: "date-time", example: "2024-01-02 14:00:00"),
+                        ]
+                    )
+                )
+            ),
+            new OA\Response(response: 401, description: "Non authentifié")
+        ]
+    )]
+    public function listAll(EntityManagerInterface $em): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user) {
+            return $this->json(['error' => 'Non authentifié'], 401);
+        }
+
+        $cards = $em->getRepository(Card::class)
+            ->createQueryBuilder('c')
+            ->addSelect('l')
+            ->join('c.list', 'l')
+            ->addSelect('o')
+            ->leftJoin('l.owner', 'o')
+            ->orderBy('l.position', 'ASC')
+            ->addOrderBy('c.position', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        $data = array_map(static function (Card $card): array {
+            $list = $card->getList();
+            $owner = $list?->getOwner();
+
+            return [
+                'id' => $card->getId(),
+                'title' => $card->getTitle(),
+                'description' => $card->getDescription(),
+                'position' => $card->getPosition(),
+                'listId' => $list?->getId(),
+                'listTitle' => $list?->getTitle(),
+                'ownerId' => $owner?->getId(),
+                'createdAt' => $card->getCreatedAt()?->format('Y-m-d H:i:s'),
+                'updatedAt' => $card->getUpdatedAt()?->format('Y-m-d H:i:s'),
+            ];
+        }, $cards);
+
+        return $this->json($data);
+    }
+
     #[Route('', name: 'api_cards_list', methods: ['GET'])]
     #[OA\Get(
         path: "/api/cards",

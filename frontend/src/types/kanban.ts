@@ -38,3 +38,14 @@ export type KanbanBoardChange =
       affectedLists: number[]
       updates: KanbanCardPositionUpdate[]
     }
+
+export type CardAllResponse = {
+  id: number
+  title: string
+  description: string | null
+  position: number
+  listId: number
+  ownerId?: number | null
+  createdAt?: string | null
+  updatedAt?: string | null
+}

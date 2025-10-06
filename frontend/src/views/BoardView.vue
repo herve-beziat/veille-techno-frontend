@@ -4,7 +4,7 @@ import { isAxiosError } from 'axios'
 import KanbanBoard from '../components/kanban/KanbanBoard.vue'
 import AppModal from '@/components/ui/AppModal.vue'
 import api from '@/services/api'
-import type { KanbanBoardChange, KanbanCardData, KanbanListData } from '@/types/kanban'
+import type { KanbanBoardChange, KanbanCardData, KanbanListData, CardAllResponse } from '@/types/kanban'
 import { useBoardUiStore } from '@/stores/board-ui'
 import { useBoardDataStore } from '@/stores/board-data'
 
@@ -12,6 +12,7 @@ type BoardListResponse = {
   id: number
   title: string
   position?: number | null
+  ownerId?: number | null
 }
 
 type CreateListResponse = {
@@ -180,38 +181,52 @@ async function fetchBoard() {
   error.value = null
 
   try {
-    const { data: boardLists } = await api.get<BoardListResponse[]>('/boardlists')
+    const [{ data: boardLists }, { data: allCards }] = await Promise.all([
+      api.get<BoardListResponse[]>('/boardlists/all'),
+      api.get<CardAllResponse[]>('/cards/all'),
+    ])
 
-    const listsWithCards = await Promise.all(
-      boardLists.map(async (list) => {
-        const { data: cards } = await api.get<KanbanCardData[]>('/cards', {
-          params: { list_id: list.id },
-        })
+    const cardsByListId = allCards.reduce((acc, card) => {
+      if (!acc.has(card.listId)) {
+        acc.set(card.listId, [])
+      }
+      acc.get(card.listId)?.push(card)
+      return acc
+    }, new Map<number, CardAllResponse[]>())
 
-        return {
-          id: list.id,
-          title: list.title,
-          position: list.position ?? null,
-          cards: sortCardsByPosition(cards).map((card) => ({
-            ...card,
-            listId: list.id,
+    const listsWithCards = boardLists.map((list) => {
+      const cardsForList = cardsByListId.get(list.id) ?? []
+
+      return {
+        id: list.id,
+        title: list.title,
+        position: list.position ?? null,
+        cards: sortCardsByPosition(
+          cardsForList.map((card) => ({
+            id: card.id,
+            title: card.title,
+            description: card.description,
+            position: card.position,
+            listId: card.listId ?? list.id,
+            createdAt: card.createdAt ?? null,
+            updatedAt: card.updatedAt ?? null,
           })),
-        }
-      }),
-    )
+        ),
+      }
+    })
 
     boardData.setLists(sortListsByPosition(listsWithCards))
     clearBoardMutationError()
   } catch (err: unknown) {
     if (isAxiosError(err)) {
       if (err.response?.status === 401) {
-        error.value = 'Veuillez vous reconnecter pour voir vos listes.'
+        error.value = 'Veuillez vous reconnecter pour voir les listes et cartes.'
       } else {
         error.value =
-          err.response?.data?.error ?? 'Impossible de charger vos listes pour le moment.'
+          err.response?.data?.error ?? 'Impossible de charger le tableau pour le moment.'
       }
     } else {
-      error.value = 'Impossible de charger vos listes pour le moment.'
+      error.value = 'Impossible de charger le tableau pour le moment.'
     }
   } finally {
     isLoading.value = false

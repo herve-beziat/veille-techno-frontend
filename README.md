@@ -22,6 +22,7 @@ Projet développé dans le cadre de la veille technologique avec un **backend Sy
 veille-techno-frontend/
 │── backend/         # API Symfony
 │── frontend/        # Application Vue 3
+|── Docs/
 │── docker-compose.yml
 └── README.md
 ```

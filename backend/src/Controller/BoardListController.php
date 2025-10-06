@@ -141,6 +141,50 @@ final class BoardListController extends AbstractController
         return $this->json($data);
     }
 
+    #[Route('/all', name: 'api_boardlists_list_all', methods: ['GET'])]
+    #[OA\Get(
+        path: "/api/boardlists/all",
+        operationId: "listAllBoardLists",  // 👈 identifiant unique
+        summary: "Liste toutes les listes quel que soit le propriétaire",
+        tags: ["BoardList"],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Tableau de toutes les listes",
+                content: new OA\JsonContent(
+                    type: "array",
+                    items: new OA\Items(
+                        type: "object",
+                        properties: [
+                            new OA\Property(property: "id", type: "integer", example: 1),
+                            new OA\Property(property: "title", type: "string", example: "À faire"),
+                            new OA\Property(property: "position", type: "integer", example: 1),
+                            new OA\Property(property: "ownerId", type: "integer", example: 5)
+                        ]
+                    )
+                )
+            ),
+            new OA\Response(response: 401, description: "Non authentifié")
+        ]
+    )]
+    public function listAll(EntityManagerInterface $em): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user) {
+            return $this->json(['error' => 'Non authentifié'], 401);
+        }
+
+        $lists = $em->getRepository(BoardList::class)->findBy([], ['position' => 'ASC']);
+
+        $data = array_map(fn(BoardList $list) => [
+            'id' => $list->getId(),
+            'title' => $list->getTitle(),
+            'position' => $list->getPosition(),
+            'ownerId' => $list->getOwner()?->getId(),
+        ], $lists);
+
+        return $this->json($data);
+    }
 
     #[Route('', name: 'api_boardlists_create', methods: ['POST'])]
     #[OA\Post(

@@ -6,6 +6,7 @@ import AppModal from '@/components/ui/AppModal.vue'
 import api from '@/services/api'
 import type { KanbanCardData, KanbanListData } from '@/types/kanban'
 import { useBoardUiStore } from '@/stores/board-ui'
+import { useBoardDataStore } from '@/stores/board-data'
 
 type BoardListResponse = {
   id: number
@@ -26,8 +27,9 @@ type CreateCardResponse = {
 }
 
 const boardUi = useBoardUiStore()
+const boardData = useBoardDataStore()
 
-const lists = ref<KanbanListData[]>([])
+const lists = computed(() => boardData.lists)
 const isLoading = ref(false)
 const error = ref<string | null>(null)
 
@@ -102,6 +104,14 @@ watch(
 )
 
 watch(
+  lists,
+  (currentLists) => {
+    boardData.setLists(currentLists)
+  },
+  { deep: true, immediate: true },
+)
+
+watch(
   () => selectedListId.value,
   (listId, oldListId) => {
     if (!listId) {
@@ -137,7 +147,7 @@ async function fetchBoard() {
       }),
     )
 
-    lists.value = sortListsByPosition(listsWithCards)
+    boardData.setLists(sortListsByPosition(listsWithCards))
   } catch (err: unknown) {
     if (isAxiosError(err)) {
       if (err.response?.status === 401) {
@@ -167,7 +177,7 @@ async function submitCreateList() {
       title: newListTitle.value.trim(),
     })
 
-    const updatedLists = [
+      const updatedLists = sortListsByPosition([
       ...lists.value,
       {
         id: data.id,
@@ -175,9 +185,9 @@ async function submitCreateList() {
         position: data.position ?? null,
         cards: [],
       },
-    ]
+    ])
 
-    lists.value = sortListsByPosition(updatedLists)
+    boardData.setLists(updatedLists)
     boardUi.closeCreateListModal()
   } catch (err: unknown) {
     if (isAxiosError(err)) {
@@ -235,7 +245,7 @@ async function submitCreateCard() {
         ...list,
         cards: updatedCards,
       })
-      lists.value = sortListsByPosition(updatedLists)
+      boardData.setLists(sortListsByPosition(updatedLists))
     }
 
     boardUi.closeCreateCardModal()

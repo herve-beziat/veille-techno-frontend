@@ -13,7 +13,7 @@ use OpenApi\Attributes as OA;
 #[Route('/api/boardlists')]
 final class BoardListController extends AbstractController
 {
-    #[Route('/reorder-all', name: 'api_boardlists_reorder_all', methods: ['POST'])]
+    #[Route('/reorder', name: 'api_boardlists_reorder', methods: ['POST'])]
     #[OA\Post(
         path: "/api/boardlists/reorder",
         summary: "Réordonne les listes du user connecté",
@@ -43,7 +43,7 @@ final class BoardListController extends AbstractController
             new OA\Response(response: 404, description: "Liste introuvable"),
         ]
     )]
-    public function reorder(Request $request, EntityManagerInterface $em): JsonResponse
+    public function reorderAll(Request $request, EntityManagerInterface $em): JsonResponse
     {
         $user = $this->getUser();
         if (!$user) {

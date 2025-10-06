@@ -22,7 +22,11 @@ services:
       dockerfile: Dockerfile
     container_name: symfony-backend
     volumes:
-      - ./backend/public:/var/www/html/public # seulement le dossier public
+      - ./backend/public:/var/www/html/public        # assets & index.php
+      - ./backend/src:/var/www/html/src              # ton code Symfony
+      - ./backend/config:/var/www/html/config        # routes + services
+      - ./backend/templates:/var/www/html/templates  # fichiers Twig éventuels
+      - ./backend/bin:/var/www/html/bin              # console Symfony
     ports:
       - "8080:80"
     depends_on:

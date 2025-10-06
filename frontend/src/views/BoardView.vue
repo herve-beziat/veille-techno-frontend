@@ -63,8 +63,8 @@ const isCreateCardModalOpen = computed({
 })
 
 const selectedListId = computed(() => boardUi.createCardModalForListId)
-const targetList = computed(() =>
-  lists.value.find((list) => list.id === selectedListId.value) ?? null,
+const targetList = computed(
+  () => lists.value.find((list) => list.id === selectedListId.value) ?? null,
 )
 
 function sortListsByPosition(boardLists: KanbanListData[]): KanbanListData[] {
@@ -101,14 +101,6 @@ watch(
       resetListForm()
     }
   },
-)
-
-watch(
-  lists,
-  (currentLists) => {
-    boardData.setLists(currentLists)
-  },
-  { deep: true, immediate: true },
 )
 
 watch(
@@ -153,7 +145,8 @@ async function fetchBoard() {
       if (err.response?.status === 401) {
         error.value = 'Veuillez vous reconnecter pour voir vos listes.'
       } else {
-        error.value = err.response?.data?.error ?? 'Impossible de charger vos listes pour le moment.'
+        error.value =
+          err.response?.data?.error ?? 'Impossible de charger vos listes pour le moment.'
       }
     } else {
       error.value = 'Impossible de charger vos listes pour le moment.'
@@ -177,7 +170,7 @@ async function submitCreateList() {
       title: newListTitle.value.trim(),
     })
 
-      const updatedLists = sortListsByPosition([
+    const updatedLists = sortListsByPosition([
       ...lists.value,
       {
         id: data.id,
@@ -194,10 +187,11 @@ async function submitCreateList() {
       if (err.response?.status === 401) {
         createListError.value = 'Vous devez être connecté pour créer une liste.'
       } else {
-        createListError.value = err.response?.data?.error ?? "Impossible de créer la liste pour le moment."
+        createListError.value =
+          err.response?.data?.error ?? 'Impossible de créer la liste pour le moment.'
       }
     } else {
-      createListError.value = "Impossible de créer la liste pour le moment."
+      createListError.value = 'Impossible de créer la liste pour le moment.'
     }
   } finally {
     isCreatingList.value = false
@@ -230,6 +224,10 @@ async function submitCreateCard() {
     const listIndex = lists.value.findIndex((list) => list.id === targetList.value?.id)
     if (listIndex !== -1) {
       const list = lists.value[listIndex]
+      if (!list) {
+        createCardError.value = 'La liste sélectionnée est introuvable.'
+        return
+      }
       const updatedCards = sortCardsByPosition([
         ...list.cards,
         {
@@ -254,10 +252,11 @@ async function submitCreateCard() {
       if (err.response?.status === 401) {
         createCardError.value = 'Vous devez être connecté pour créer une carte.'
       } else {
-        createCardError.value = err.response?.data?.error ?? "Impossible de créer la carte pour le moment."
+        createCardError.value =
+          err.response?.data?.error ?? 'Impossible de créer la carte pour le moment.'
       }
     } else {
-      createCardError.value = "Impossible de créer la carte pour le moment."
+      createCardError.value = 'Impossible de créer la carte pour le moment.'
     }
   } finally {
     isCreatingCard.value = false
@@ -289,14 +288,18 @@ onMounted(fetchBoard)
             placeholder="Ex. À faire"
             autocomplete="off"
             required
-          >
+          />
         </label>
 
         <p v-if="createListError" class="modal-form__error">{{ createListError }}</p>
       </form>
 
       <template #footer>
-        <button type="button" class="modal-button modal-button--ghost" @click="isCreateListModalOpen = false">
+        <button
+          type="button"
+          class="modal-button modal-button--ghost"
+          @click="isCreateListModalOpen = false"
+        >
           Annuler
         </button>
         <button
@@ -327,7 +330,7 @@ onMounted(fetchBoard)
             placeholder="Ex. Contacter le client"
             autocomplete="off"
             required
-          >
+          />
         </label>
 
         <label class="modal-form__field">
@@ -345,7 +348,11 @@ onMounted(fetchBoard)
       </form>
 
       <template #footer>
-        <button type="button" class="modal-button modal-button--ghost" @click="isCreateCardModalOpen = false">
+        <button
+          type="button"
+          class="modal-button modal-button--ghost"
+          @click="isCreateCardModalOpen = false"
+        >
           Annuler
         </button>
         <button
@@ -399,7 +406,9 @@ onMounted(fetchBoard)
   border-radius: 8px;
   padding: 0.65rem 0.85rem;
   font-size: 0.95rem;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
   font-family: inherit;
 }
 
@@ -426,7 +435,9 @@ onMounted(fetchBoard)
   padding: 0.6rem 1.25rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s ease, transform 0.2s ease;
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease;
   background: linear-gradient(135deg, #6366f1, #4338ca);
   color: #fff;
 }

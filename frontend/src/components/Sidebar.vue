@@ -2,10 +2,12 @@
 import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useBoardUiStore } from '@/stores/board-ui'
 
 const auth = useAuthStore()
 const router = useRouter()
 const showKanban = ref(false)
+const boardUi = useBoardUiStore()
 
 function handleKanbanClick() {
   router.push({ name: 'board' })
@@ -14,6 +16,14 @@ function handleKanbanClick() {
 
 function toggleKanbanMenu() {
   showKanban.value = !showKanban.value
+}
+
+async function handleCreateListClick() {
+  if (router.currentRoute.value.name !== 'board') {
+    await router.push({ name: 'board' })
+  }
+  showKanban.value = true
+  boardUi.openCreateListModal()
 }
 
 function handleLogout() {
@@ -34,7 +44,9 @@ function handleLogout() {
           <span class="arrow" @click.stop="toggleKanbanMenu">{{ showKanban ? "▼" : "▶" }}</span>
         </div>
         <div v-if="showKanban" class="submenu">
-          <RouterLink to="/board" class="sublink">➕ Nouvelle liste</RouterLink>
+          <button type="button" class="sublink sublink--button" @click="handleCreateListClick">
+            ➕ Nouvelle liste
+          </button>
         </div>
 
         <!-- Bouton Déconnexion -->
@@ -56,5 +68,30 @@ function handleLogout() {
   position: fixed;
   top: 0;
   left: 0;
+}
+
+.submenu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0 1rem;
+}
+
+.sublink {
+  text-decoration: none;
+  color: #374151;
+  font-size: 0.95rem;
+}
+
+.sublink--button {
+  border: none;
+  background: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sublink--button:hover {
+  color: #111827;
 }
 </style>

@@ -155,7 +155,6 @@ final class CardController extends AbstractController
             new OA\Response(response: 200, description: "Ordre mis à jour"),
             new OA\Response(response: 400, description: "Format invalide"),
             new OA\Response(response: 401, description: "Non authentifié"),
-            new OA\Response(response: 403, description: "Non autorisé"),
             new OA\Response(response: 404, description: "Carte ou liste introuvable"),
         ]
     )]
@@ -208,17 +207,13 @@ final class CardController extends AbstractController
         foreach ($cards as $card) {
             $cardUpdate = $updates[$card->getId()];
 
-            if ($card->getList()->getOwner() !== $user) {
-                return $this->json(['error' => 'Non autorisé'], 403);
-            }
-
             $listId = $cardUpdate['list_id'];
             if (!isset($listsCache[$listId])) {
                 $listsCache[$listId] = $listRepository->find($listId);
             }
 
             $targetList = $listsCache[$listId];
-            if (!$targetList || $targetList->getOwner() !== $user) {
+            if (!$targetList) {
                 return $this->json(['error' => 'Liste introuvable'], 404);
             }
 
@@ -232,7 +227,7 @@ final class CardController extends AbstractController
         return $this->json(['message' => 'Ordre des cartes mis à jour']);
     }
 
-    #[Route('/{id}', name: 'api_cards_update', methods: ['PUT'])]
+    #[Route('/{id}', name: 'api_cards_update', methods: ['PUT'], requirements: ['id' => '\\d+'])]
     #[OA\Put(
         path: "/api/cards/{id}",
         summary: "Met à jour une carte (titre, description, position, ou déplacer vers une autre liste)",
@@ -302,7 +297,7 @@ final class CardController extends AbstractController
         ]);
     }
 
-    #[Route('/{id}', name: 'api_cards_delete', methods: ['DELETE'])]
+    #[Route('/{id}', name: 'api_cards_delete', methods: ['DELETE'], requirements: ['id' => '\\d+'])]
     #[OA\Delete(
         path: "/api/cards/{id}",
         summary: "Supprime une carte (si elle appartient au user connecté)",

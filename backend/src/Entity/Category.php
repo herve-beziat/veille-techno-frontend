@@ -7,18 +7,24 @@ use App\Repository\CategoryRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Annotation\Groups;
+use OpenApi\Attributes as OA;
+
 
 #[ORM\Entity(repositoryClass: CategoryRepository::class)]
 class Category
 {
+    #[Groups(['category:read', 'card:read'])]
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
     private ?int $id = null;
 
+    #[Groups(['category:read', 'card:read'])]
     #[ORM\Column(length: 50)]
     private ?string $name = null;
 
+    #[Groups(['category:read', 'card:read'])]
     #[ORM\Column(length: 7, nullable: true)]
     private ?string $color = null;
 

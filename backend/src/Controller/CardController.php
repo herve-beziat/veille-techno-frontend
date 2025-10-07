@@ -145,7 +145,6 @@ final class CardController extends AbstractController
         responses: [
             new OA\Response(response: 201, description: "Carte créée"),
             new OA\Response(response: 401, description: "Non authentifié"),
-            new OA\Response(response: 403, description: "Non autorisé"),
             new OA\Response(response: 404, description: "Liste introuvable")
         ]
     )]
@@ -162,9 +161,7 @@ final class CardController extends AbstractController
         if (!$boardList) {
             return $this->json(['error' => 'Liste introuvable'], 404);
         }
-        if ($boardList->getOwner() !== $user) {
-            return $this->json(['error' => 'Non autorisé'], 403);
-        }
+        
 
         $lastPosition = $em->getRepository(Card::class)
             ->createQueryBuilder('c')

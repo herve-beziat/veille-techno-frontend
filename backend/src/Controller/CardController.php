@@ -161,7 +161,7 @@ final class CardController extends AbstractController
         if (!$boardList) {
             return $this->json(['error' => 'Liste introuvable'], 404);
         }
-        
+
 
         $lastPosition = $em->getRepository(Card::class)
             ->createQueryBuilder('c')
@@ -223,7 +223,7 @@ final class CardController extends AbstractController
             new OA\Response(response: 404, description: "Carte ou liste introuvable"),
         ]
     )]
-    
+
     public function reorder(Request $request, EntityManagerInterface $em): JsonResponse
     {
         $user = $this->getUser();
@@ -312,10 +312,34 @@ final class CardController extends AbstractController
         responses: [
             new OA\Response(response: 200, description: "Carte mise à jour"),
             new OA\Response(response: 401, description: "Non authentifié"),
-            new OA\Response(response: 403, description: "Non autorisé"),
             new OA\Response(response: 404, description: "Carte introuvable")
         ]
     )]
+    #[Route('/{id}', name: 'api_cards_update', methods: ['PUT'], requirements: ['id' => '\d+'])]
+    #[OA\Put(
+        path: "/api/cards/{id}",
+        summary: "Met à jour une carte (titre, description, position, ou déplacement vers une autre liste)",
+        tags: ["Card"],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                type: "object",
+                properties: [
+                    new OA\Property(property: "title", type: "string"),
+                    new OA\Property(property: "description", type: "string"),
+                    new OA\Property(property: "position", type: "integer", example: 2),
+                    new OA\Property(property: "list_id", type: "integer", example: 2)
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: "Carte mise à jour"),
+            new OA\Response(response: 401, description: "Non authentifié"),
+            new OA\Response(response: 404, description: "Carte introuvable")
+        ]
+    )]
+
+
     public function update(int $id, Request $request, EntityManagerInterface $em): JsonResponse
     {
         $user = $this->getUser();
@@ -326,9 +350,6 @@ final class CardController extends AbstractController
         $card = $em->getRepository(Card::class)->find($id);
         if (!$card) {
             return $this->json(['error' => 'Carte introuvable'], 404);
-        }
-        if ($card->getList()->getOwner() !== $user) {
-            return $this->json(['error' => 'Non autorisé'], 403);
         }
 
         $data = json_decode($request->getContent(), true);
@@ -344,7 +365,7 @@ final class CardController extends AbstractController
         }
         if (isset($data['list_id'])) {
             $newList = $em->getRepository(BoardList::class)->find($data['list_id']);
-            if ($newList && $newList->getOwner() === $user) {
+            if ($newList) {
                 $card->setList($newList);
             }
         }
@@ -362,6 +383,7 @@ final class CardController extends AbstractController
         ]);
     }
 
+
     #[Route('/{id}', name: 'api_cards_delete', methods: ['DELETE'], requirements: ['id' => '\\d+'])]
     #[OA\Delete(
         path: "/api/cards/{id}",
@@ -370,7 +392,6 @@ final class CardController extends AbstractController
         responses: [
             new OA\Response(response: 200, description: "Carte supprimée"),
             new OA\Response(response: 401, description: "Non authentifié"),
-            new OA\Response(response: 403, description: "Non autorisé"),
             new OA\Response(response: 404, description: "Carte introuvable")
         ]
     )]
@@ -385,9 +406,7 @@ final class CardController extends AbstractController
         if (!$card) {
             return $this->json(['error' => 'Carte introuvable'], 404);
         }
-        if ($card->getList()->getOwner() !== $user) {
-            return $this->json(['error' => 'Non autorisé'], 403);
-        }
+        
 
         // ✅ Sauvegarder l'ID avant de supprimer
         $deletedId = $card->getId();

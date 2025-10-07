@@ -13,6 +13,7 @@ const emit = defineEmits<{
       added?: { element: KanbanListData['cards'][number]; newIndex: number }
     }
   }): void
+  (e: 'card-select', payload: { listId: number; card: KanbanListData['cards'][number] }): void
 }>()
 
 const list = computed(() => props.list)
@@ -23,6 +24,11 @@ function handleCardChange(event: {
 }) {
   emit('card-change', { listId: list.value.id, event })
 }
+
+function handleCardSelect(card: KanbanListData['cards'][number]) {
+  emit('card-select', { listId: list.value.id, card })
+}
+
 </script>
 
 <template>
@@ -39,7 +45,8 @@ function handleCardChange(event: {
       @change="handleCardChange"
     >
       <template #item="{ element }">
-        <KanbanCard :card="element" />
+        <KanbanCard :card="element" @select="handleCardSelect(element)" />
+
       </template>
 
       <template #footer>

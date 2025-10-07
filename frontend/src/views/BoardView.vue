@@ -4,9 +4,15 @@ import { isAxiosError } from 'axios'
 import KanbanBoard from '../components/kanban/KanbanBoard.vue'
 import AppModal from '@/components/ui/AppModal.vue'
 import api from '@/services/api'
-import type { KanbanBoardChange, KanbanCardData, KanbanListData, CardAllResponse } from '@/types/kanban'
+import type {
+  KanbanBoardChange,
+  KanbanCardData,
+  KanbanListData,
+  CardAllResponse,
+} from '@/types/kanban'
 import { useBoardUiStore } from '@/stores/board-ui'
 import { useBoardDataStore } from '@/stores/board-data'
+import KanbanCardEditModal from '@/components/kanban/KanbanCardEditModal.vue'
 
 type BoardListResponse = {
   id: number
@@ -43,6 +49,14 @@ const newCardDescription = ref('')
 const createCardError = ref<string | null>(null)
 const isCreatingCard = ref(false)
 const boardMutationError = ref<string | null>(null)
+
+// --- Gestion de l'édition d'une carte ---
+const isEditCardModalOpen = ref(false)
+const editingCard = ref<(KanbanCardData & { listId: number }) | null>(null)
+const editCardTitle = ref('')
+const editCardDescription = ref('')
+const editCardError = ref<string | null>(null)
+const isUpdatingCard = ref(false)
 
 let boardMutationErrorTimeout: ReturnType<typeof setTimeout> | null = null
 
@@ -144,6 +158,16 @@ watch(
     }
   },
 )
+
+function handleCardSelect(payload: { listId: number; card: KanbanCardData }) {
+  const { listId, card } = payload
+
+  editingCard.value = { ...card, listId }
+  editCardTitle.value = card.title
+  editCardDescription.value = card.description ?? ''
+  editCardError.value = null
+  isEditCardModalOpen.value = true
+}
 
 async function handleBoardChange(change: KanbanBoardChange) {
   const previousState = cloneBoardLists(lists.value)
@@ -346,6 +370,83 @@ async function submitCreateCard() {
   }
 }
 
+async function submitEditCard() {
+  const cardToEdit = editingCard.value
+  if (!cardToEdit) {
+    editCardError.value = 'La carte sélectionnée est introuvable.'
+    return
+  }
+
+  const trimmedTitle = editCardTitle.value.trim()
+  if (!trimmedTitle) {
+    editCardError.value = 'Le titre de la carte est requis.'
+    return
+  }
+
+  isUpdatingCard.value = true
+  editCardError.value = null
+
+  try {
+    const { data } = await api.put(`/cards/${cardToEdit.id}`, {
+      title: trimmedTitle,
+      description: editCardDescription.value,
+    })
+
+    const updatedLists = lists.value.map((list) => {
+      if (list.id !== cardToEdit.listId) return list
+
+      return {
+        ...list,
+        cards: list.cards.map((card) =>
+          card.id === cardToEdit.id
+            ? {
+                ...card,
+                title: data.title ?? trimmedTitle,
+                description: data.description ?? editCardDescription.value,
+              }
+            : card,
+        ),
+      }
+    })
+
+    boardData.setLists(updatedLists)
+    isEditCardModalOpen.value = false
+  } catch (err: unknown) {
+    if (isAxiosError(err)) {
+      editCardError.value = err.response?.data?.error ?? 'Impossible de mettre à jour la carte.'
+    } else {
+      editCardError.value = 'Erreur inattendue.'
+    }
+  } finally {
+    isUpdatingCard.value = false
+  }
+}
+
+function onCardUpdated(updatedCard: KanbanCardData) {
+  const updatedLists = lists.value.map((list) => {
+    if (list.id !== updatedCard.listId) return list
+
+    return {
+      ...list,
+      cards: list.cards.map((card) =>
+        card.id === updatedCard.id ? { ...card, ...updatedCard } : card,
+      ),
+    }
+  })
+
+  boardData.setLists(updatedLists)
+  isEditCardModalOpen.value = false
+}
+
+function onCardDeleted(cardId: number) {
+  const updatedLists = lists.value.map((list) => ({
+    ...list,
+    cards: list.cards.filter((c) => c.id !== cardId),
+  }))
+  boardData.setLists(updatedLists)
+  isEditCardModalOpen.value = false
+}
+
 onMounted(fetchBoard)
 </script>
 
@@ -355,7 +456,13 @@ onMounted(fetchBoard)
 
     <p v-if="isLoading" class="board-view__status">Chargement du tableau…</p>
     <p v-else-if="error" class="board-view__status board-view__status--error">{{ error }}</p>
-    <KanbanBoard v-else :lists="lists" @board-change="handleBoardChange" />
+    <KanbanBoard
+      v-else
+      :lists="lists"
+      @board-change="handleBoardChange"
+      @card-select="handleCardSelect"
+    />
+
     <p
       v-if="boardMutationError && !isLoading && !error"
       class="board-view__status board-view__status--warning"
@@ -454,6 +561,14 @@ onMounted(fetchBoard)
         </button>
       </template>
     </AppModal>
+
+    <KanbanCardEditModal
+      v-model="isEditCardModalOpen"
+      :card="editingCard"
+      :list-title="lists.find((l) => l.id === editingCard?.listId)?.title ?? null"
+      @updated="onCardUpdated"
+      @delete="onCardDeleted"
+    />
   </div>
 </template>
 

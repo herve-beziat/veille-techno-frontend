@@ -1,11 +1,19 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { KanbanCardData } from '@/types/kanban'
 
-defineProps<{ card: KanbanCardData }>()
+const props = defineProps<{ card: KanbanCardData }>()
+const emit = defineEmits<{ (e: 'select', card: KanbanCardData): void }>()
+
+const card = computed(() => props.card)
+
+function handleClick() {
+  emit('select', card.value)
+}
 </script>
 
 <template>
-  <div class="kanban-card">
+  <div class="kanban-card" @click.stop="handleClick">
     <h3 class="kanban-card__title">{{ card.title }}</h3>
     <p v-if="card.description" class="kanban-card__description">{{ card.description }}</p>
   </div>

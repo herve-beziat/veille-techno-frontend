@@ -35,6 +35,7 @@ type CardChangePayload = {
 const props = defineProps<{ lists: KanbanListData[] }>()
 const emit = defineEmits<{
   (e: 'board-change', payload: KanbanBoardChange): void
+  (e: 'card-select', payload: { listId: number; card: KanbanListData['cards'][number] }): void
 }>()
 
 const internalLists = ref<KanbanListData[]>([])
@@ -167,12 +168,18 @@ function handleCardChange(payload: CardChangePayload) {
     >
       <template #item="{ element }">
         <div class="kanban-board__column">
-          <KanbanList :list="element" @card-change="handleCardChange" />
+          <KanbanList
+            :list="element"
+            @card-change="handleCardChange"
+            @card-select="emit('card-select', $event)"
+          />
         </div>
       </template>
     </Draggable>
 
-    <p v-if="!internalLists.length" class="kanban-board__empty">Vous n'avez pas encore de listes.</p>
+    <p v-if="!internalLists.length" class="kanban-board__empty">
+      Vous n'avez pas encore de listes.
+    </p>
   </div>
 </template>
 

@@ -6,6 +6,9 @@ export interface KanbanCardData {
   listId?: number
   createdAt?: string | null
   updatedAt?: string | null
+  categoryId?: number | null
+  categoryName?: string | null
+  categoryColor?: string | null
 }
 
 export interface KanbanListData {
@@ -13,6 +16,12 @@ export interface KanbanListData {
   title: string
   position?: number | null
   cards: KanbanCardData[]
+}
+
+export interface KanbanCategory {
+  id: number
+  name: string
+  color: string | null
 }
 
 export interface KanbanListPositionUpdate {
@@ -48,4 +57,7 @@ export type CardAllResponse = {
   ownerId?: number | null
   createdAt?: string | null
   updatedAt?: string | null
+  categoryId?: number | null
+  categoryName?: string | null
+  categoryColor?: string | null
 }

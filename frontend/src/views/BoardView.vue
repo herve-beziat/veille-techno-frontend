@@ -9,6 +9,7 @@ import type {
   KanbanCardData,
   KanbanListData,
   CardAllResponse,
+  KanbanCategory,
 } from '@/types/kanban'
 import { useBoardUiStore } from '@/stores/board-ui'
 import { useBoardDataStore } from '@/stores/board-data'
@@ -31,6 +32,11 @@ type CreateCardResponse = {
   title: string
   description: string | null
   position: number
+  listId: number
+  createdAt?: string | null
+  categoryId?: number | null
+  categoryName?: string | null
+  categoryColor?: string | null
 }
 
 const boardUi = useBoardUiStore()
@@ -46,8 +52,13 @@ const isCreatingList = ref(false)
 
 const newCardTitle = ref('')
 const newCardDescription = ref('')
+const newCardCategoryId = ref<number | null>(null)
 const createCardError = ref<string | null>(null)
 const isCreatingCard = ref(false)
+
+const categories = ref<KanbanCategory[]>([])
+const isLoadingCategories = ref(false)
+const categoriesError = ref<string | null>(null)
 const boardMutationError = ref<string | null>(null)
 
 // --- Gestion de l'édition d'une carte ---
@@ -85,6 +96,9 @@ const targetList = computed(
   () => lists.value.find((list) => list.id === selectedListId.value) ?? null,
 )
 
+// --------------------------------------------------
+// Fonctions utilitaires
+// --------------------------------------------------
 function sortListsByPosition(boardLists: KanbanListData[]): KanbanListData[] {
   return [...boardLists].sort((a, b) => {
     const posA = a.position ?? Number.MAX_SAFE_INTEGER
@@ -130,10 +144,14 @@ function resetListForm() {
 function resetCardForm() {
   newCardTitle.value = ''
   newCardDescription.value = ''
+  newCardCategoryId.value = null
   createCardError.value = null
   isCreatingCard.value = false
 }
 
+// --------------------------------------------------
+// Watchers
+// --------------------------------------------------
 watch(
   () => isCreateListModalOpen.value,
   (isOpen) => {
@@ -159,6 +177,9 @@ watch(
   },
 )
 
+// --------------------------------------------------
+// Gestion des cartes
+// --------------------------------------------------
 function handleCardSelect(payload: { listId: number; card: KanbanCardData }) {
   const { listId, card } = payload
 
@@ -169,6 +190,9 @@ function handleCardSelect(payload: { listId: number; card: KanbanCardData }) {
   isEditCardModalOpen.value = true
 }
 
+// --------------------------------------------------
+// Board global
+// --------------------------------------------------
 async function handleBoardChange(change: KanbanBoardChange) {
   const previousState = cloneBoardLists(lists.value)
   boardData.setLists(change.lists)
@@ -234,6 +258,9 @@ async function fetchBoard() {
             listId: card.listId ?? list.id,
             createdAt: card.createdAt ?? null,
             updatedAt: card.updatedAt ?? null,
+            categoryId: card.categoryId ?? null,
+            categoryName: card.categoryName ?? null,
+            categoryColor: card.categoryColor ?? null,
           })),
         ),
       }
@@ -257,6 +284,25 @@ async function fetchBoard() {
   }
 }
 
+// --------------------------------------------------
+// Catégories
+// --------------------------------------------------
+async function fetchCategories() {
+  isLoadingCategories.value = true
+  categoriesError.value = null
+  try {
+    const { data } = await api.get<KanbanCategory[]>('/categories')
+    categories.value = data
+  } catch {
+    categoriesError.value = 'Impossible de charger les catégories.'
+  } finally {
+    isLoadingCategories.value = false
+  }
+}
+
+// --------------------------------------------------
+// Création
+// --------------------------------------------------
 async function submitCreateList() {
   if (!newListTitle.value.trim()) {
     createListError.value = 'Le titre de la liste est requis.'
@@ -319,6 +365,7 @@ async function submitCreateCard() {
       list_id: targetList.value.id,
       title: newCardTitle.value.trim(),
       description: newCardDescription.value.trim(),
+      category_id: newCardCategoryId.value,
     }
 
     const { data } = await api.post<CreateCardResponse>('/cards', payload)
@@ -338,6 +385,10 @@ async function submitCreateCard() {
           description: data.description,
           position: data.position,
           listId: targetList.value.id,
+          createdAt: data.createdAt ?? null,
+          categoryId: data.categoryId ?? null,
+          categoryName: data.categoryName ?? null,
+          categoryColor: data.categoryColor ?? null,
         },
       ]).map((card) => ({
         ...card,
@@ -447,7 +498,10 @@ function onCardDeleted(cardId: number) {
   isEditCardModalOpen.value = false
 }
 
-onMounted(fetchBoard)
+onMounted(() => {
+  fetchBoard()
+  fetchCategories()
+})
 </script>
 
 <template>
@@ -538,6 +592,21 @@ onMounted(fetchBoard)
             rows="4"
             placeholder="Détails de la tâche"
           ></textarea>
+        </label>
+
+        <!-- Sélecteur Catégorie -->
+        <label class="modal-form__field">
+          <span class="modal-form__label">Catégorie</span>
+          <select
+            v-model="newCardCategoryId"
+            class="modal-form__input"
+            :disabled="isLoadingCategories"
+          >
+            <option :value="null">Aucune catégorie</option>
+            <option v-for="category in categories" :key="category.id" :value="category.id">
+              {{ category.name }}
+            </option>
+          </select>
         </label>
 
         <p v-if="createCardError" class="modal-form__error">{{ createCardError }}</p>

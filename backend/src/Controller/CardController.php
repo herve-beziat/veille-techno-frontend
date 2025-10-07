@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\Card;
 use App\Entity\BoardList;
+use App\Entity\Category;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -37,6 +38,9 @@ final class CardController extends AbstractController
                             new OA\Property(property: "ownerId", type: "integer", nullable: true, example: 7),
                             new OA\Property(property: "createdAt", type: "string", format: "date-time", example: "2024-01-01 12:00:00"),
                             new OA\Property(property: "updatedAt", type: "string", nullable: true, format: "date-time", example: "2024-01-02 14:00:00"),
+                            new OA\Property(property: "categoryId", type: "integer", nullable: true, example: 5),
+                            new OA\Property(property: "categoryName", type: "string", nullable: true, example: "Urgent"),
+                            new OA\Property(property: "categoryColor", type: "string", nullable: true, example: "#FF0000"),
                         ]
                     )
                 )
@@ -57,6 +61,8 @@ final class CardController extends AbstractController
             ->join('c.list', 'l')
             ->addSelect('o')
             ->leftJoin('l.owner', 'o')
+            ->addSelect('category')
+            ->leftJoin('c.category', 'category')
             ->orderBy('l.position', 'ASC')
             ->addOrderBy('c.position', 'ASC')
             ->getQuery()
@@ -76,6 +82,9 @@ final class CardController extends AbstractController
                 'ownerId' => $owner?->getId(),
                 'createdAt' => $card->getCreatedAt()?->format('Y-m-d H:i:s'),
                 'updatedAt' => $card->getUpdatedAt()?->format('Y-m-d H:i:s'),
+                'categoryId' => $card->getCategory()?->getId(),
+                'categoryName' => $card->getCategory()?->getName(),
+                'categoryColor' => $card->getCategory()?->getColor(),
             ];
         }, $cards);
 
@@ -121,6 +130,9 @@ final class CardController extends AbstractController
             'position' => $card->getPosition(),
             'createdAt' => $card->getCreatedAt()?->format('Y-m-d H:i:s'),
             'updatedAt' => $card->getUpdatedAt()?->format('Y-m-d H:i:s'),
+            'categoryId' => $card->getCategory()?->getId(),
+            'categoryName' => $card->getCategory()?->getName(),
+            'categoryColor' => $card->getCategory()?->getColor(),
         ], $cards->toArray());
 
         return $this->json($data);
@@ -138,14 +150,16 @@ final class CardController extends AbstractController
                 properties: [
                     new OA\Property(property: "list_id", type: "integer", example: 1),
                     new OA\Property(property: "title", type: "string", example: "Acheter du café"),
-                    new OA\Property(property: "description", type: "string", example: "Prendre du café moulu au supermarché")
+                    new OA\Property(property: "description", type: "string", example: "Prendre du café moulu au supermarché"),
+                    new OA\Property(property: "category_id", type: "integer", nullable: true, example: 3)
                 ]
             )
         ),
         responses: [
             new OA\Response(response: 201, description: "Carte créée"),
             new OA\Response(response: 401, description: "Non authentifié"),
-            new OA\Response(response: 404, description: "Liste introuvable")
+            new OA\Response(response: 400, description: "Paramètres manquants"),
+            new OA\Response(response: 404, description: "Liste ou catégorie introuvable")
         ]
     )]
     public function create(Request $request, EntityManagerInterface $em): JsonResponse
@@ -156,12 +170,25 @@ final class CardController extends AbstractController
         }
 
         $data = json_decode($request->getContent(), true);
+
+        if (!is_array($data)) {
+            return $this->json(['error' => 'Paramètres manquants'], 400);
+        }
+
+
         $boardList = $em->getRepository(BoardList::class)->find($data['list_id'] ?? null);
 
         if (!$boardList) {
             return $this->json(['error' => 'Liste introuvable'], 404);
         }
 
+        $category = null;
+        if (array_key_exists('category_id', $data) && $data['category_id'] !== null) {
+            $category = $em->getRepository(Category::class)->find($data['category_id']);
+            if (!$category) {
+                return $this->json(['error' => 'Catégorie introuvable'], 404);
+            }
+        }
 
         $lastPosition = $em->getRepository(Card::class)
             ->createQueryBuilder('c')
@@ -177,6 +204,7 @@ final class CardController extends AbstractController
         $card->setList($boardList);
         $card->setPosition(($lastPosition ?? 0) + 1);
         $card->setCreatedAt(new \DateTimeImmutable());
+        $card->setCategory($category);
 
         $em->persist($card);
         $em->flush();
@@ -187,7 +215,11 @@ final class CardController extends AbstractController
             'title' => $card->getTitle(),
             'description' => $card->getDescription(),
             'position' => $card->getPosition(),
-            'createdAt' => $card->getCreatedAt()?->format('Y-m-d H:i:s')
+            'listId' => $boardList->getId(),
+            'createdAt' => $card->getCreatedAt()->format('Y-m-d H:i:s'),
+            'categoryId' => $category?->getId(),
+            'categoryName' => $category?->getName(),
+            'categoryColor' => $category?->getColor(),
         ], 201);
     }
 
@@ -292,29 +324,7 @@ final class CardController extends AbstractController
         return $this->json(['message' => 'Ordre des cartes mis à jour']);
     }
 
-    #[Route('/{id}', name: 'api_cards_update', methods: ['PUT'], requirements: ['id' => '\\d+'])]
-    #[OA\Put(
-        path: "/api/cards/{id}",
-        summary: "Met à jour une carte (titre, description, position, ou déplacer vers une autre liste)",
-        tags: ["Card"],
-        requestBody: new OA\RequestBody(
-            required: true,
-            content: new OA\JsonContent(
-                type: "object",
-                properties: [
-                    new OA\Property(property: "title", type: "string"),
-                    new OA\Property(property: "description", type: "string"),
-                    new OA\Property(property: "position", type: "integer", example: 2),
-                    new OA\Property(property: "list_id", type: "integer", example: 2)
-                ]
-            )
-        ),
-        responses: [
-            new OA\Response(response: 200, description: "Carte mise à jour"),
-            new OA\Response(response: 401, description: "Non authentifié"),
-            new OA\Response(response: 404, description: "Carte introuvable")
-        ]
-    )]
+  
     #[Route('/{id}', name: 'api_cards_update', methods: ['PUT'], requirements: ['id' => '\d+'])]
     #[OA\Put(
         path: "/api/cards/{id}",
@@ -328,14 +338,16 @@ final class CardController extends AbstractController
                     new OA\Property(property: "title", type: "string"),
                     new OA\Property(property: "description", type: "string"),
                     new OA\Property(property: "position", type: "integer", example: 2),
-                    new OA\Property(property: "list_id", type: "integer", example: 2)
+                    new OA\Property(property: "list_id", type: "integer", example: 2),
+                    new OA\Property(property: "category_id", type: "integer", nullable: true, example: 4)
                 ]
             )
         ),
         responses: [
             new OA\Response(response: 200, description: "Carte mise à jour"),
+            new OA\Response(response: 400, description: "Format de données invalide"),
             new OA\Response(response: 401, description: "Non authentifié"),
-            new OA\Response(response: 404, description: "Carte introuvable")
+            new OA\Response(response: 404, description: "Carte, liste ou catégorie introuvable")
         ]
     )]
 
@@ -354,19 +366,31 @@ final class CardController extends AbstractController
 
         $data = json_decode($request->getContent(), true);
 
-        if (isset($data['title'])) {
-            $card->setTitle($data['title']);
+        if (!is_array($data)) {
+            return $this->json(['error' => 'Format JSON invalide'], 400);
         }
-        if (isset($data['description'])) {
-            $card->setDescription($data['description']);
-        }
-        if (isset($data['position'])) {
-            $card->setPosition($data['position']);
-        }
+
+        if (isset($data['title'])) $card->setTitle($data['title']);
+        if (isset($data['description'])) $card->setDescription($data['description']);
+        if (isset($data['position'])) $card->setPosition($data['position']);
+
         if (isset($data['list_id'])) {
             $newList = $em->getRepository(BoardList::class)->find($data['list_id']);
-            if ($newList) {
-                $card->setList($newList);
+            if (!$newList) {
+                return $this->json(['error' => 'Liste introuvable'], 404);
+            }
+            $card->setList($newList);
+        }
+
+        if (array_key_exists('category_id', $data)) {
+            if ($data['category_id'] === null) {
+                $card->setCategory(null);
+            } else {
+                $category = $em->getRepository(Category::class)->find($data['category_id']);
+                if (!$category) {
+                    return $this->json(['error' => 'Catégorie introuvable'], 404);
+                }
+                $card->setCategory($category);
             }
         }
 
@@ -379,7 +403,10 @@ final class CardController extends AbstractController
             'id' => $card->getId(),
             'title' => $card->getTitle(),
             'description' => $card->getDescription(),
-            'position' => $card->getPosition()
+            'position' => $card->getPosition(),
+            'categoryId' => $card->getCategory()?->getId(),
+            'categoryName' => $card->getCategory()?->getName(),
+            'categoryColor' => $card->getCategory()?->getColor(),
         ]);
     }
 
@@ -406,7 +433,7 @@ final class CardController extends AbstractController
         if (!$card) {
             return $this->json(['error' => 'Carte introuvable'], 404);
         }
-        
+
 
         // ✅ Sauvegarder l'ID avant de supprimer
         $deletedId = $card->getId();

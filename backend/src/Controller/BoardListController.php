@@ -73,13 +73,10 @@ final class BoardListController extends AbstractController
         }
 
         $listRepository = $em->getRepository(BoardList::class);
-        $lists = $listRepository->findBy([
-            'owner' => $user,
-            'id' => $uniqueIds,
-        ]);
+        $lists = $listRepository->findBy(['id' => $uniqueIds,]);
 
-        if (count($lists) !== count($uniqueIds)) {
-            return $this->json(['error' => 'Certaines listes sont introuvables'], 404);
+        if (!$lists) {
+            return $this->json(['error' => 'Aucune liste trouvée'], 404);
         }
 
         $listsById = [];

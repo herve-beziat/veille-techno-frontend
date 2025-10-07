@@ -2,9 +2,11 @@
 
 namespace App\Entity;
 
+use App\Entity\Category;
 use App\Repository\CardRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+
 
 #[ORM\Entity(repositoryClass: CardRepository::class)]
 class Card
@@ -32,6 +34,10 @@ class Card
     #[ORM\ManyToOne(inversedBy: 'cards')]
     #[ORM\JoinColumn(nullable: false)]
     private ?BoardList $list = null;
+
+    #[ORM\ManyToOne(inversedBy: 'cards')]
+    #[ORM\JoinColumn(nullable: true, onDelete: "SET NULL")]
+    private ?Category $category = null;
 
     public function getId(): ?int
     {
@@ -106,6 +112,18 @@ class Card
     public function setList(?BoardList $list): static
     {
         $this->list = $list;
+
+        return $this;
+    }
+
+    public function getCategory(): ?Category
+    {
+        return $this->category;
+    }
+
+    public function setCategory(?Category $category): static
+    {
+        $this->category = $category;
 
         return $this;
     }

@@ -635,6 +635,8 @@ onMounted(() => {
       v-model="isEditCardModalOpen"
       :card="editingCard"
       :list-title="lists.find((l) => l.id === editingCard?.listId)?.title ?? null"
+      :categories="categories"
+      :is-loading-categories="isLoadingCategories"
       @updated="onCardUpdated"
       @delete="onCardDeleted"
     />

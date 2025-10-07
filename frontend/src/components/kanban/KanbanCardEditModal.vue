@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import api from '@/services/api'
 import { isAxiosError } from 'axios'
 import AppModal from '@/components/ui/AppModal.vue'
-import type { KanbanCardData } from '@/types/kanban'
-import { computed } from 'vue'
+import type { KanbanCardData, KanbanCategory } from '@/types/kanban'
 
 const props = defineProps<{
   modelValue: boolean
   card: KanbanCardData | null
   listTitle?: string | null
+  categories?: KanbanCategory[]
+  isLoadingCategories?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -22,11 +23,15 @@ const title = ref('')
 const description = ref('')
 const isSaving = ref(false)
 const error = ref<string | null>(null)
+const selectedCategoryId = ref<number | null>(null)
 
 const isOpen = computed({
   get: () => props.modelValue,
   set: (value: boolean) => emit('update:modelValue', value),
 })
+
+const modalCategories = computed(() => props.categories)
+const isCategoriesLoading = computed(() => props.isLoadingCategories) ?? false
 
 // 🔄 Synchronise les données de la carte à éditer
 watch(
@@ -35,10 +40,16 @@ watch(
     if (newCard) {
       title.value = newCard.title
       description.value = newCard.description ?? ''
+      selectedCategoryId.value = newCard.categoryId ?? null
+      error.value = null
+    } else {
+      title.value = ''
+      description.value = ''
+      selectedCategoryId.value = null
       error.value = null
     }
   },
-  { immediate: true }
+  { immediate: true },
 )
 
 async function saveChanges() {
@@ -51,6 +62,7 @@ async function saveChanges() {
     const { data } = await api.put(`/cards/${props.card.id}`, {
       title: title.value.trim(),
       description: description.value.trim(),
+      category_id: selectedCategoryId.value,
     })
 
     emit('updated', data)
@@ -117,20 +129,32 @@ function close() {
         ></textarea>
       </label>
 
+      <label class="modal-form__field">
+        <span class="modal-form__label">Catégorie</span>
+        <select
+          v-model="selectedCategoryId"
+          class="modal-form__input"
+          :disabled="isCategoriesLoading"
+        >
+          <option :value="null">Aucune catégorie</option>
+          <option
+            v-for="category in modalCategories"
+            :key="category.id"
+            :value="category.id"
+          >
+            {{ category.name }}
+          </option>
+        </select>
+      </label>
+
       <p v-if="error" class="modal-form__error">{{ error }}</p>
     </form>
 
     <template #footer>
-      <button
-        type="button"
-        class="modal-button modal-button--danger"
-        @click="deleteCard"
-      >
+      <button type="button" class="modal-button modal-button--danger" @click="deleteCard">
         Supprimer la carte
       </button>
-      <button type="button" class="modal-button modal-button--ghost" @click="close">
-        Annuler
-      </button>
+      <button type="button" class="modal-button modal-button--ghost" @click="close">Annuler</button>
       <button class="modal-button" :disabled="isSaving" @click="saveChanges">
         {{ isSaving ? 'Enregistrement…' : 'Enregistrer' }}
       </button>
@@ -237,4 +261,3 @@ function close() {
   margin-left: 0.5rem;
 }
 </style>
-

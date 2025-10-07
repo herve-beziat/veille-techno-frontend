@@ -404,6 +404,7 @@ final class CardController extends AbstractController
             'title' => $card->getTitle(),
             'description' => $card->getDescription(),
             'position' => $card->getPosition(),
+            'listId' => $card->getList()->getId(),
             'categoryId' => $card->getCategory()?->getId(),
             'categoryName' => $card->getCategory()?->getName(),
             'categoryColor' => $card->getCategory()?->getColor(),

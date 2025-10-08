@@ -36,6 +36,7 @@ const props = defineProps<{ lists: KanbanListData[] }>()
 const emit = defineEmits<{
   (e: 'board-change', payload: KanbanBoardChange): void
   (e: 'card-select', payload: { listId: number; card: KanbanListData['cards'][number] }): void
+  (e: 'list-select', payload: KanbanListData): void
 }>()
 
 const internalLists = ref<KanbanListData[]>([])
@@ -172,6 +173,7 @@ function handleCardChange(payload: CardChangePayload) {
             :list="element"
             @card-change="handleCardChange"
             @card-select="emit('card-select', $event)"
+            @list-select="emit('list-select', $event)"
           />
         </div>
       </template>

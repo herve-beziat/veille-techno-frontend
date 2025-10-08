@@ -256,7 +256,6 @@ final class BoardListController extends AbstractController
         responses: [
             new OA\Response(response: 200, description: "Liste mise à jour"),
             new OA\Response(response: 401, description: "Non authentifié"),
-            new OA\Response(response: 403, description: "Non autorisé"),
             new OA\Response(response: 404, description: "Liste introuvable")
         ]
     )]
@@ -270,9 +269,6 @@ final class BoardListController extends AbstractController
         $boardList = $em->getRepository(BoardList::class)->find($id);
         if (!$boardList) {
             return $this->json(['error' => 'Liste introuvable'], 404);
-        }
-        if ($boardList->getOwner() !== $user) {
-            return $this->json(['error' => 'Non autorisé'], 403);
         }
 
         $data = json_decode($request->getContent(), true);
@@ -298,7 +294,6 @@ final class BoardListController extends AbstractController
         responses: [
             new OA\Response(response: 200, description: "Liste supprimée"),
             new OA\Response(response: 401, description: "Non authentifié"),
-            new OA\Response(response: 403, description: "Non autorisé"),
             new OA\Response(response: 404, description: "Liste introuvable")
         ]
     )]
@@ -313,9 +308,7 @@ final class BoardListController extends AbstractController
         if (!$boardList) {
             return $this->json(['error' => 'Liste introuvable'], 404);
         }
-        if ($boardList->getOwner() !== $user) {
-            return $this->json(['error' => 'Non autorisé'], 403);
-        }
+        
 
         $deletedId = $boardList->getId();
 

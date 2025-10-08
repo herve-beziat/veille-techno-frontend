@@ -14,6 +14,7 @@ const emit = defineEmits<{
     }
   }): void
   (e: 'card-select', payload: { listId: number; card: KanbanListData['cards'][number] }): void
+  (e: 'list-select', payload: KanbanListData): void
 }>()
 
 const list = computed(() => props.list)
@@ -29,11 +30,24 @@ function handleCardSelect(card: KanbanListData['cards'][number]) {
   emit('card-select', { listId: list.value.id, card })
 }
 
+// 🔹 Événement de clic sur le titre de la liste
+function handleListSelect() {
+  emit('list-select', list.value)
+}
 </script>
 
 <template>
   <div class="kanban-column" :data-list-id="list.id">
-    <h2 class="kanban-column__title">{{ list.title }}</h2>
+    <h2
+      class="kanban-column__title"
+      role="button"
+      tabindex="0"
+      @click="handleListSelect"
+      @keydown.enter.prevent="handleListSelect"
+      @keydown.space.prevent="handleListSelect"
+    >
+      {{ list.title }}
+    </h2>
 
     <Draggable
       class="kanban-column__cards"
@@ -46,11 +60,12 @@ function handleCardSelect(card: KanbanListData['cards'][number]) {
     >
       <template #item="{ element }">
         <KanbanCard :card="element" @select="handleCardSelect(element)" />
-
       </template>
 
       <template #footer>
-        <p v-if="!list.cards.length" class="kanban-column__empty">Aucune carte dans cette liste.</p>
+        <p v-if="!list.cards.length" class="kanban-column__empty">
+          Aucune carte dans cette liste.
+        </p>
       </template>
     </Draggable>
   </div>
@@ -69,10 +84,23 @@ function handleCardSelect(card: KanbanListData['cards'][number]) {
   gap: 0.75rem;
 }
 
+/* 🔹 Titre cliquable et focus visible */
 .kanban-column__title {
   margin: 0;
   font-size: 1.1rem;
   font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: color 0.2s ease;
+}
+
+.kanban-column__title:hover {
+  color: #4338ca;
+}
+
+.kanban-column__title:focus {
+  color: #4338ca;
+  text-decoration: underline;
 }
 
 .kanban-column__cards {

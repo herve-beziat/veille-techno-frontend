@@ -3,73 +3,69 @@ import { ref, watch, computed } from 'vue'
 import api from '@/services/api'
 import { isAxiosError } from 'axios'
 import AppModal from '@/components/ui/AppModal.vue'
-import type { KanbanCardData, KanbanCategory } from '@/types/kanban'
+import type { KanbanListData, KanbanCardData } from '@/types/kanban'
 
 const props = defineProps<{
   modelValue: boolean
-  card: KanbanCardData | null
-  listTitle?: string | null
-  categories?: KanbanCategory[]
-  isLoadingCategories?: boolean
+  list: KanbanListData | null
 }>()
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
-  (e: 'updated', card: KanbanCardData): void
+  (e: 'updated', list: KanbanListData): void
   (e: 'delete', id: number): void
 }>()
 
+// --- États locaux
 const title = ref('')
-const description = ref('')
 const isSaving = ref(false)
+const isDeleting = ref(false)
 const error = ref<string | null>(null)
-const selectedCategoryId = ref<number | null>(null)
 
 const isOpen = computed({
   get: () => props.modelValue,
   set: (value: boolean) => emit('update:modelValue', value),
 })
 
-const modalCategories = computed(() => props.categories)
-const isCategoriesLoading = computed(() => props.isLoadingCategories) ?? false
-
-// 🔄 Synchronise les données de la carte à éditer
+// 🔄 Synchronise les données de la liste à éditer
 watch(
-  () => props.card,
-  (newCard) => {
-    if (newCard) {
-      title.value = newCard.title
-      description.value = newCard.description ?? ''
-      selectedCategoryId.value = newCard.categoryId ?? null
+  () => props.list,
+  (newList) => {
+    if (newList) {
+      title.value = newList.title
       error.value = null
     } else {
       title.value = ''
-      description.value = ''
-      selectedCategoryId.value = null
       error.value = null
     }
   },
   { immediate: true },
 )
 
+// 💾 Sauvegarde la modification
 async function saveChanges() {
-  if (!props.card) return
+  if (!props.list) return
+
+  const trimmedTitle = title.value.trim()
+  if (!trimmedTitle) {
+    error.value = 'Le titre de la liste est requis.'
+    return
+  }
 
   isSaving.value = true
   error.value = null
 
   try {
-    const { data } = await api.put(`/cards/${props.card.id}`, {
-      title: title.value.trim(),
-      description: description.value.trim(),
-      category_id: selectedCategoryId.value,
+    const { data } = await api.put(`/boardlists/${props.list.id}`, {
+      title: trimmedTitle,
     })
 
     emit('updated', data)
     emit('update:modelValue', false)
   } catch (err: unknown) {
     if (isAxiosError(err)) {
-      error.value = err.response?.data?.error ?? 'Impossible de mettre à jour la carte.'
+      error.value =
+        err.response?.data?.error ?? 'Impossible de mettre à jour la liste.'
     } else {
       error.value = 'Erreur inconnue lors de la mise à jour.'
     }
@@ -78,20 +74,27 @@ async function saveChanges() {
   }
 }
 
-async function deleteCard() {
-  if (!props.card) return
-  if (!confirm('Voulez-vous vraiment supprimer cette carte ?')) return
+// 🗑️ Suppression de la liste
+async function deleteList() {
+  if (!props.list) return
+  if (!confirm('Voulez-vous vraiment supprimer cette liste et toutes ses cartes ?')) return
+
+  isDeleting.value = true
+  error.value = null
 
   try {
-    await api.delete(`/cards/${props.card.id}`)
-    emit('delete', props.card.id)
+    await api.delete(`/boardlists/${props.list.id}`)
+    emit('delete', props.list.id)
     emit('update:modelValue', false)
   } catch (err: unknown) {
     if (isAxiosError(err)) {
-      error.value = err.response?.data?.error ?? 'Impossible de supprimer la carte.'
+      error.value =
+        err.response?.data?.error ?? 'Impossible de supprimer la liste.'
     } else {
       error.value = 'Erreur inconnue lors de la suppression.'
     }
+  } finally {
+    isDeleting.value = false
   }
 }
 
@@ -103,8 +106,8 @@ function close() {
 <template>
   <AppModal v-model="isOpen">
     <template #header>
-      Modifier la carte
-      <span v-if="listTitle" class="modal-subtitle"> {{ listTitle }}</span>
+      Modifier la liste
+      <span v-if="list" class="modal-subtitle"> {{ list.title }}</span>
     </template>
 
     <form class="modal-form" @submit.prevent="saveChanges">
@@ -114,48 +117,35 @@ function close() {
           v-model="title"
           type="text"
           class="modal-form__input"
-          placeholder="Titre de la carte"
+          placeholder="Titre de la liste"
           required
         />
-      </label>
-
-      <label class="modal-form__field">
-        <span class="modal-form__label">Description</span>
-        <textarea
-          v-model="description"
-          rows="4"
-          class="modal-form__textarea"
-          placeholder="Détails..."
-        ></textarea>
-      </label>
-
-      <label class="modal-form__field">
-        <span class="modal-form__label">Catégorie</span>
-        <select
-          v-model="selectedCategoryId"
-          class="modal-form__input"
-          :disabled="isCategoriesLoading"
-        >
-          <option :value="null">Aucune catégorie</option>
-          <option
-            v-for="category in modalCategories"
-            :key="category.id"
-            :value="category.id"
-          >
-            {{ category.name }}
-          </option>
-        </select>
       </label>
 
       <p v-if="error" class="modal-form__error">{{ error }}</p>
     </form>
 
     <template #footer>
-      <button type="button" class="modal-button modal-button--danger" @click="deleteCard">
-        Supprimer la carte
+      <button
+        type="button"
+        class="modal-button modal-button--danger"
+        :disabled="isDeleting"
+        @click="deleteList"
+      >
+        {{ isDeleting ? 'Suppression…' : 'Supprimer la liste' }}
       </button>
-      <button type="button" class="modal-button modal-button--ghost" @click="close">Annuler</button>
-      <button class="modal-button" :disabled="isSaving" @click="saveChanges">
+      <button
+        type="button"
+        class="modal-button modal-button--ghost"
+        @click="close"
+      >
+        Annuler
+      </button>
+      <button
+        class="modal-button"
+        :disabled="isSaving"
+        @click="saveChanges"
+      >
         {{ isSaving ? 'Enregistrement…' : 'Enregistrer' }}
       </button>
     </template>
@@ -163,7 +153,6 @@ function close() {
 </template>
 
 <style scoped>
-/* ===== Styles de formulaire modale ===== */
 .modal-form {
   display: flex;
   flex-direction: column;
@@ -181,27 +170,19 @@ function close() {
   color: #1f2937;
 }
 
-.modal-form__input,
-.modal-form__textarea {
+.modal-form__input {
   border: 1px solid #d1d5db;
   border-radius: 8px;
   padding: 0.65rem 0.85rem;
   font-size: 0.95rem;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
   font-family: inherit;
 }
 
-.modal-form__input:focus,
-.modal-form__textarea:focus {
+.modal-form__input:focus {
   border-color: #6366f1;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
   outline: none;
-}
-
-.modal-form__textarea {
-  resize: vertical;
 }
 
 .modal-form__error {
@@ -210,16 +191,14 @@ function close() {
   margin-top: -0.5rem;
 }
 
-/* ===== Boutons ===== */
+/* Boutons */
 .modal-button {
   border: none;
   border-radius: 9999px;
   padding: 0.6rem 1.25rem;
   font-weight: 600;
   cursor: pointer;
-  transition:
-    background 0.2s ease,
-    transform 0.2s ease;
+  transition: background 0.2s ease, transform 0.2s ease;
   background: linear-gradient(135deg, #6366f1, #4338ca);
   color: #fff;
 }
@@ -233,7 +212,6 @@ function close() {
   cursor: not-allowed;
 }
 
-/* Bouton secondaire */
 .modal-button--ghost {
   background: #eef2ff;
   color: #4338ca;
@@ -243,7 +221,6 @@ function close() {
   background: #e0e7ff;
 }
 
-/* Ton bouton rouge personnalisé (déjà présent, on le garde) */
 .modal-button--danger {
   background: #dc2626;
   color: #fff;
@@ -253,7 +230,7 @@ function close() {
   background: #b91c1c;
 }
 
-/* Sous-titre dans l’en-tête */
+/* Petit sous-titre */
 .modal-subtitle {
   font-weight: 400;
   font-size: 0.9rem;

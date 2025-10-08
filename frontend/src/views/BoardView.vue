@@ -14,6 +14,7 @@ import type {
 import { useBoardUiStore } from '@/stores/board-ui'
 import { useBoardDataStore } from '@/stores/board-data'
 import KanbanCardEditModal from '@/components/kanban/KanbanCardEditModal.vue'
+import KanbanListEditModal from '@/components/kanban/KanbanListEditModal.vue'
 
 type BoardListResponse = {
   id: number
@@ -68,6 +69,10 @@ const editCardTitle = ref('')
 const editCardDescription = ref('')
 const editCardError = ref<string | null>(null)
 const isUpdatingCard = ref(false)
+
+// --- Gestion de l'édition d'une liste ---
+const isEditListModalOpen = ref(false)
+const editingList = ref<KanbanListData | null>(null)
 
 let boardMutationErrorTimeout: ReturnType<typeof setTimeout> | null = null
 
@@ -498,6 +503,28 @@ function onCardDeleted(cardId: number) {
   isEditCardModalOpen.value = false
 }
 
+// --------------------------------------------------
+// Gestion de l'édition / suppression de liste
+// --------------------------------------------------
+function handleListSelect(list: KanbanListData) {
+  editingList.value = list
+  isEditListModalOpen.value = true
+}
+
+function onListUpdated(updatedList: KanbanListData) {
+  const updatedLists = lists.value.map((l) =>
+    l.id === updatedList.id ? { ...l, title: updatedList.title } : l,
+  )
+  boardData.setLists(updatedLists)
+  isEditListModalOpen.value = false
+}
+
+function onListDeleted(listId: number) {
+  const updatedLists = lists.value.filter((l) => l.id !== listId)
+  boardData.setLists(updatedLists)
+  isEditListModalOpen.value = false
+}
+
 onMounted(() => {
   fetchBoard()
   fetchCategories()
@@ -515,6 +542,7 @@ onMounted(() => {
       :lists="lists"
       @board-change="handleBoardChange"
       @card-select="handleCardSelect"
+      @list-select="handleListSelect"
     />
 
     <p
@@ -639,6 +667,13 @@ onMounted(() => {
       :is-loading-categories="isLoadingCategories"
       @updated="onCardUpdated"
       @delete="onCardDeleted"
+    />
+
+    <KanbanListEditModal
+      v-model="isEditListModalOpen"
+      :list="editingList"
+      @updated="onListUpdated"
+      @delete="onListDeleted"
     />
   </div>
 </template>
